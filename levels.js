@@ -37,9 +37,7 @@ const LEVELS = [
         player: { x: 2, y: 0, rotation: 90, name: "captain" },
         enemies: [],
         startCode: `<actions>
-    <move distance="3"/>
-    <rotate direction="cw"/>
-    <move distance="3"/>
+    <!-- Escribe tu código aquí -->
 </actions>`,
         hints: [
             "cw = clockwise (sentido horario, derecha)",
@@ -93,9 +91,7 @@ const LEVELS = [
         player: { x: 0, y: 4, rotation: 0, name: "captain" },
         enemies: [],
         startCode: `<actions>
-    <move distance="5"/>
-    <shoot/>
-    <move distance="5"/>
+    <!-- Escribe tu código aquí -->
 </actions>`,
         hints: [
             "El comando <shoot/> dispara en la dirección que miras",
