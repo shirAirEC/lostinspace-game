@@ -7,6 +7,7 @@ class GameEngine {
             enemies: [],
             rocks: [],
             walls: [],
+            portals: [],
             exit: null,
             grid: [],
             ghostMode: 0,
@@ -23,9 +24,17 @@ class GameEngine {
         this.currentLevel = JSON.parse(JSON.stringify(levelData));
         this.gameState = {
             player: { ...levelData.player, ghostMode: 0 },
-            enemies: levelData.enemies.map(e => ({ ...e })),
-            rocks: levelData.rocks.map(r => ({ ...r, health: r.health || 1 })),
+            enemies: (levelData.enemies || []).map(e => ({
+                ...e,
+                patternIndex: 0
+            })),
+            rocks: levelData.rocks.map(r => ({
+                ...r,
+                health: r.health || 1,
+                patternIndex: 0
+            })),
             walls: levelData.walls.map(w => ({ ...w })),
+            portals: (levelData.portals || []).map(p => ({ ...p })),
             exit: { ...levelData.exit },
             moves: 0,
             completed: false
@@ -122,6 +131,8 @@ class GameEngine {
                 }
 
                 const result = await this.executeCommand(command);
+                this.advanceHazards();
+                this.checkHazardDamage();
                 
                 if (onStep) {
                     await onStep(command, result, i + 1, commands.length);
@@ -176,6 +187,7 @@ class GameEngine {
     executeMove(player, distance) {
         const vector = getDirectionVector(player.rotation);
         let actualMoves = 0;
+        let teleports = 0;
 
         for (let i = 0; i < distance; i++) {
             const newX = player.x + vector.dx;
@@ -196,15 +208,38 @@ class GameEngine {
             if (player.ghostMode === 0 && this.checkRockCollision(newX, newY)) {
                 throw new Error(`¡Choque con roca! Destruye las rocas con <shoot/> primero en (${newX}, ${newY})`);
             }
+            if (player.ghostMode === 0 && this.checkEnemyCollision(newX, newY)) {
+                throw new Error(`¡Choque con nave enemiga en (${newX}, ${newY})!`);
+            }
 
             player.x = newX;
             player.y = newY;
             actualMoves++;
+
+            const portal = this.getPortalAt(player.x, player.y);
+            if (portal) {
+                if (this.checkWallCollision(portal.toX, portal.toY)) {
+                    throw new Error('El portal está bloqueado por una pared.');
+                }
+                if (this.checkRockCollision(portal.toX, portal.toY)) {
+                    throw new Error('El portal está bloqueado por una roca.');
+                }
+                if (this.checkEnemyCollision(portal.toX, portal.toY)) {
+                    throw new Error('El portal está bloqueado por una nave enemiga.');
+                }
+                player.x = portal.toX;
+                player.y = portal.toY;
+                teleports++;
+            }
+
+            if (player.ghostMode === 0 && this.isLaserCell(player.x, player.y)) {
+                throw new Error('¡Te alcanzó un disparo enemigo!');
+            }
         }
 
         return {
             success: true,
-            message: `Movido ${actualMoves} casilla(s)${player.ghostMode > 0 ? ' (modo fantasma)' : ''}`
+            message: `Movido ${actualMoves} casilla(s)${teleports > 0 ? ` y teletransportado ${teleports} vez/veces` : ''}${player.ghostMode > 0 ? ' (modo fantasma)' : ''}`
         };
     }
 
@@ -221,6 +256,19 @@ class GameEngine {
         const vector = getDirectionVector(player.rotation);
         const targetX = player.x + vector.dx;
         const targetY = player.y + vector.dy;
+
+        // Buscar enemigo en la posición objetivo
+        const enemyIndex = this.gameState.enemies.findIndex(
+            e => e.x === targetX && e.y === targetY
+        );
+
+        if (enemyIndex !== -1) {
+            this.gameState.enemies.splice(enemyIndex, 1);
+            return {
+                success: true,
+                message: `¡Enemigo destruido en (${targetX}, ${targetY})!`
+            };
+        }
 
         // Buscar roca en la posición objetivo
         const rockIndex = this.gameState.rocks.findIndex(
@@ -269,6 +317,120 @@ class GameEngine {
 
     checkRockCollision(x, y) {
         return this.gameState.rocks.some(rock => rock.x === x && rock.y === y);
+    }
+
+    checkEnemyCollision(x, y) {
+        return this.gameState.enemies.some(enemy => enemy.x === x && enemy.y === y);
+    }
+
+    getPortalAt(x, y) {
+        return this.gameState.portals.find(portal => portal.x === x && portal.y === y) || null;
+    }
+
+    advanceHazards() {
+        // Los enemigos permanecen en su posición; no se mueven al ejecutar comandos del jugador.
+        // Esto evita que su turno esté acoplado al del usuario.
+        this.gameState.rocks
+            .filter(rock => Array.isArray(rock.movingPattern) && rock.movingPattern.length > 0)
+            .forEach(rock => this.advanceEntity(rock, false));
+    }
+
+    advanceEntity(entity, isEnemy) {
+        if (!Array.isArray(entity.pattern) && !Array.isArray(entity.movingPattern)) {
+            return;
+        }
+        const pattern = entity.pattern || entity.movingPattern;
+        const step = pattern[entity.patternIndex % pattern.length];
+        entity.patternIndex = (entity.patternIndex + 1) % pattern.length;
+
+        if (step.type === 'rotate') {
+            entity.rotation = rotateDirection(entity.rotation || 90, step.direction || 'cw');
+            return;
+        }
+
+        if (step.type === 'move') {
+            const vector = getDirectionVector(entity.rotation || 90);
+            const distance = step.distance || 1;
+
+            for (let i = 0; i < distance; i++) {
+                const nextX = entity.x + vector.dx;
+                const nextY = entity.y + vector.dy;
+                const blocked =
+                    nextX < 0 || nextY < 0 ||
+                    nextX >= this.currentLevel.width || nextY >= this.currentLevel.height ||
+                    this.checkWallCollision(nextX, nextY) ||
+                    (isEnemy && this.checkRockCollision(nextX, nextY));
+
+                if (blocked) {
+                    entity.rotation = rotateDirection(entity.rotation || 90, 'cw');
+                    break;
+                }
+
+                entity.x = nextX;
+                entity.y = nextY;
+            }
+        }
+    }
+
+    getEnemyLaserCells() {
+        const cells = [];
+        this.gameState.enemies.forEach(enemy => {
+            if (!enemy.shoots) return;
+            if (!this.canEnemySeePlayer(enemy)) return;
+
+            const vector = getDirectionVector(enemy.rotation || 90);
+            let x = enemy.x + vector.dx;
+            let y = enemy.y + vector.dy;
+
+            while (
+                x >= 0 && y >= 0 &&
+                x < this.currentLevel.width && y < this.currentLevel.height &&
+                !this.checkWallCollision(x, y) &&
+                !this.checkRockCollision(x, y)
+            ) {
+                cells.push({ x, y });
+                x += vector.dx;
+                y += vector.dy;
+            }
+        });
+        return cells;
+    }
+
+    canEnemySeePlayer(enemy) {
+        const player = this.gameState.player;
+        const vector = getDirectionVector(enemy.rotation || 90);
+        let x = enemy.x + vector.dx;
+        let y = enemy.y + vector.dy;
+
+        while (
+            x >= 0 && y >= 0 &&
+            x < this.currentLevel.width && y < this.currentLevel.height &&
+            !this.checkWallCollision(x, y) &&
+            !this.checkRockCollision(x, y)
+        ) {
+            if (x === player.x && y === player.y) {
+                return true;
+            }
+            x += vector.dx;
+            y += vector.dy;
+        }
+
+        return false;
+    }
+
+    isLaserCell(x, y) {
+        return this.getEnemyLaserCells().some(cell => cell.x === x && cell.y === y);
+    }
+
+    checkHazardDamage() {
+        const player = this.gameState.player;
+        if (player.ghostMode > 0) return;
+        if (this.checkEnemyCollision(player.x, player.y)) {
+            throw new Error('¡Una nave enemiga te interceptó!');
+        }
+        if (this.isLaserCell(player.x, player.y)) {
+            throw new Error('¡Te alcanzó un disparo enemigo!');
+        }
     }
 
     checkVictory() {

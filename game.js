@@ -126,6 +126,8 @@ class Game {
     renderGrid() {
         const level = LEVELS[this.currentLevelIndex];
         const state = this.engine.getState();
+        const laserCells = this.engine.getEnemyLaserCells();
+        const laserSet = new Set(laserCells.map(cell => `${cell.x},${cell.y}`));
         
         this.elements.gameGrid.innerHTML = '';
         this.elements.gameGrid.style.gridTemplateColumns = `repeat(${level.width}, var(--grid-size))`;
@@ -148,11 +150,20 @@ class Game {
                 if (x === state.exit.x && y === state.exit.y) {
                     cell.classList.add('exit');
                 }
+                if (state.portals && state.portals.some(p => p.x === x && p.y === y)) {
+                    cell.classList.add('portal');
+                }
+                if (laserSet.has(`${x},${y}`)) {
+                    cell.classList.add('enemy-laser');
+                }
                 
                 // Verificar si hay roca
                 const rock = state.rocks.find(r => r.x === x && r.y === y);
                 if (rock) {
                     cell.classList.add('rock', rock.type);
+                    if (Array.isArray(rock.movingPattern)) {
+                        cell.classList.add('moving-asteroid');
+                    }
                 }
                 
                 this.elements.gameGrid.appendChild(cell);
@@ -161,18 +172,19 @@ class Game {
         
         // Renderizar jugador
         this.renderPlayer(state.player);
+        this.renderEnemies(state.enemies);
     }
 
     renderPlayer(player) {
         // Eliminar jugador anterior
-        const oldPlayer = this.elements.gameGrid.querySelector('.ship');
+        const oldPlayer = this.elements.gameGrid.querySelector('.ship.player-ship');
         if (oldPlayer) {
             oldPlayer.remove();
         }
         
         // Crear nuevo jugador
         const ship = document.createElement('div');
-        ship.className = `ship ${player.name}`;
+        ship.className = `ship player-ship ${player.name}`;
         if (player.ghostMode > 0) {
             ship.classList.add('ghost');
         }
@@ -186,6 +198,20 @@ class Game {
         ship.style.top = `${player.y * (cellSize + 3) + cellSize / 2}px`;
         
         this.elements.gameGrid.appendChild(ship);
+    }
+
+    renderEnemies(enemies) {
+        this.elements.gameGrid.querySelectorAll('.ship.enemy-ship').forEach(node => node.remove());
+        const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-size'));
+
+        enemies.forEach(enemy => {
+            const ship = document.createElement('div');
+            ship.className = 'ship enemy-ship';
+            ship.setAttribute('data-rotation', enemy.rotation || 90);
+            ship.style.left = `${enemy.x * (cellSize + 3) + cellSize / 2}px`;
+            ship.style.top = `${enemy.y * (cellSize + 3) + cellSize / 2}px`;
+            this.elements.gameGrid.appendChild(ship);
+        });
     }
 
     isCellWall(x, y, walls) {
@@ -510,7 +536,7 @@ class Game {
     }
     
     getLevelDifficulty(levelIndex) {
-        const difficulties = [1, 2, 3, 3, 4, 4, 4, 4, 3, 4, 5];
+        const difficulties = [1, 2, 3, 4, 4, 4, 4, 3, 4, 5];
         return difficulties[levelIndex] || 3;
     }
 }
