@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost In Space - Aprende XML Programando</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Header -->
+        <header class="game-header">
+            <div class="header-content">
+                <h1>🚀 Lost In Space</h1>
+                <div class="level-info">
+                    <button id="levelMenuBtn" class="btn btn-secondary" title="Seleccionar nivel">
+                        📋 Niveles
+                    </button>
+                    <span class="level-badge">Nivel <span id="currentLevel">1</span></span>
+                    <span class="moves-counter">Movimientos: <span id="movesCount">0</span></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Game Area -->
+        <div class="game-layout">
+            <!-- Left Side: Game Grid -->
+            <div class="game-section">
+                <div class="section-header">
+                    <h2>🌌 Espacio</h2>
+                    <div class="controls">
+                        <button id="resetBtn" class="btn btn-secondary" title="Reiniciar nivel">
+                            🔄 Reiniciar
+                        </button>
+                        <button id="stepBtn" class="btn btn-secondary" title="Ejecutar paso a paso">
+                            ⏯️ Paso a Paso
+                        </button>
+                    </div>
+                </div>
+                <div id="gameGrid" class="game-grid"></div>
+                
+                <!-- Mission Objective -->
+                <div class="mission-panel">
+                    <h3>📋 Objetivo</h3>
+                    <p id="missionText">Escribe código XML para mover tu nave hasta la salida.</p>
+                </div>
+            </div>
+
+            <!-- Right Side: Code Editor -->
+            <div class="editor-section">
+                <div class="section-header">
+                    <h2>💻 Editor de Código XML</h2>
+                    <button id="runBtn" class="btn btn-primary">
+                        ⚡ Ejecutar Código
+                    </button>
+                </div>
+                
+                <div class="editor-wrapper">
+                    <div class="line-numbers" id="lineNumbers"></div>
+                    <textarea 
+                        id="codeEditor" 
+                        class="code-editor"
+                        placeholder="Escribe tu código XML aquí..."
+                        spellcheck="false"
+                    ><actions>
+    <move distance="1"/>
+</actions></textarea>
+                </div>
+
+                <!-- Console Output -->
+                <div class="console-panel">
+                    <div class="console-header">
+                        <span>📟 Consola</span>
+                        <button id="clearConsole" class="btn-clear">Limpiar</button>
+                    </div>
+                    <div id="console" class="console-output"></div>
+                </div>
+
+                <!-- Help Panel -->
+                <div class="help-panel collapsed" id="helpPanel">
+                    <button class="help-toggle" id="helpToggle">
+                        ❓ Ayuda - Comandos XML
+                    </button>
+                    <div class="help-content">
+                        <h4>Comandos Disponibles:</h4>
+                        
+                        <div class="command-list">
+                            <div class="command-item">
+                                <code>&lt;move distance="N"/&gt;</code>
+                                <span>Mover N casillas hacia adelante en la dirección actual</span>
+                                <small class="example">Ejemplo: <code>&lt;move distance="3"/&gt;</code> avanza 3 casillas</small>
+                            </div>
+                            
+                            <div class="command-item">
+                                <code>&lt;rotate direction="cw"/&gt;</code>
+                                <span><strong>CW = Clockwise</strong> - Girar 90° a la DERECHA (sentido horario)</span>
+                                <div class="rotation-diagram">
+                                    <span>↑ → CW → → → CW → ↓ → CW → ← → CW → ↑</span>
+                                </div>
+                            </div>
+                            
+                            <div class="command-item">
+                                <code>&lt;rotate direction="ccw"/&gt;</code>
+                                <span><strong>CCW = Counter-Clockwise</strong> - Girar 90° a la IZQUIERDA (sentido antihorario)</span>
+                                <div class="rotation-diagram">
+                                    <span>↑ → CCW → ← → CCW → ↓ → CCW → → → CCW → ↑</span>
+                                </div>
+                            </div>
+                            
+                            <div class="command-item">
+                                <code>&lt;shoot/&gt;</code>
+                                <span>Disparar un proyectil para destruir rocas blancas</span>
+                                <small class="example">Solo funciona con rocas blancas (⚪). Las negras (⚫) son indestructibles.</small>
+                            </div>
+                            
+                            <div class="command-item">
+                                <code>&lt;ghost time="N"/&gt;</code>
+                                <span>Modo fantasma por N movimientos (atravesar paredes)</span>
+                                <small class="example">Ejemplo: <code>&lt;ghost time="2"/&gt;</code> permite atravesar paredes en los próximos 2 movimientos</small>
+                            </div>
+                        </div>
+                        
+                        <div class="help-note">
+                            <strong>💡 Recuerda:</strong> La nave siempre avanza en la dirección hacia donde está mirando. Usa rotate para cambiar de dirección antes de moverte.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Victory Modal -->
+        <div id="victoryModal" class="modal hidden">
+            <div class="modal-content victory">
+                <h2>🎉 ¡Nivel Completado!</h2>
+                <p class="victory-message">Has completado el nivel con éxito.</p>
+                <div class="victory-stats">
+                    <div class="stat">
+                        <span class="stat-label">Movimientos:</span>
+                        <span class="stat-value" id="finalMoves">0</span>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button id="nextLevelBtn" class="btn btn-primary">
+                        Siguiente Nivel ➡️
+                    </button>
+                    <button id="replayBtn" class="btn btn-secondary">
+                        🔄 Reintentar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Modal -->
+        <div id="errorModal" class="modal hidden">
+            <div class="modal-content error">
+                <h2>❌ Error</h2>
+                <p id="errorMessage" class="error-message"></p>
+                <button id="closeErrorBtn" class="btn btn-primary">
+                    Entendido
+                </button>
+            </div>
+        </div>
+
+        <!-- Level Selection Modal -->
+        <div id="levelMenuModal" class="modal hidden">
+            <div class="modal-content level-menu">
+                <h2>📋 Seleccionar Nivel</h2>
+                <p class="level-menu-subtitle">Elige un nivel para jugar</p>
+                
+                <div id="levelGrid" class="level-grid">
+                    <!-- Los niveles se generarán dinámicamente aquí -->
+                </div>
+                
+                <div class="modal-actions">
+                    <button id="closeLevelMenuBtn" class="btn btn-secondary">
+                        ← Volver al Juego
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Engine Scripts -->
+    <script src="engine.js"></script>
+    <script src="levels.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

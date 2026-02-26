@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="66" height="66" viewBox="0 0 66 66">
+  <g fill="none" stroke="currentColor" stroke-width="3" opacity="0.8">
+    <circle cx="23" cy="30.5" r="5">
+      <animate attributeName="r" values="5;15;5" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="23" cy="30.5" r="10">
+      <animate attributeName="r" values="10;20;10" dur="2.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2.5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="23" cy="30.5" r="15">
+      <animate attributeName="r" values="15;25;15" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.4;0.1;0.4" dur="3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+</svg>
